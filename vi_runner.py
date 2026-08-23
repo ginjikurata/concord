@@ -13,7 +13,7 @@ import time
 import uuid
 from pathlib import Path
 
-VI = Path("/home/claude/vi")
+VI = Path("~/Documents/verifiable-intent").expanduser()
 for p in (str(VI / "src"), str(VI / "examples")):
     if p not in sys.path:
         sys.path.insert(0, p)

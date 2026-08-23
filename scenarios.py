@@ -5,6 +5,8 @@
 криптографическую проверку Verifiable Intent без единого нарушения.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 
