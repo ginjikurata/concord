@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 
@@ -37,7 +38,7 @@ def _load_env_file(path: str = ".env") -> None:
 _load_env_file()
 
 API_KEY = os.environ.get("LLM_API_KEY")
-MODEL = os.environ.get("LLM_MODEL", "gemini-3.6-flash")
+MODEL = os.environ.get("LLM_MODEL", "gemini-flash-lite-latest")
 API_URL = f"https://generativelanguage.googleapis.com/v1beta/models/{MODEL}:generateContent"
 
 SYSTEM_PROMPT = """Ты извлекаешь факты о покупке из просьбы человека на русском.
@@ -48,7 +49,10 @@ SYSTEM_PROMPT = """Ты извлекаешь факты о покупке из �
 Ответь СТРОГО одним JSON-объектом, без markdown-разметки, без пояснений,
 со следующими ключами (используй null, если признак не назван):
 
-- "brand": строка — название бренда, если названо (например "Babolat"), иначе null.
+- "brand": строка — канонические название бренда латиницей, если названо
+  (например "Babolat", "HEAD", "Wilson", "ASICS"). Приводи разговорные и
+  транслитерированные варианты к каноническому виду (например "бабблат"
+  и "Бабблат" → "Babolat", "асиксы" → "ASICS"). Если бренда нет — null.
 - "color": строка на английском — один из "black", "white", "blue", "yellow",
   "silver", "red", "green", "grey", "pink" — если цвет назван явно, иначе null.
 - "size_label": строка — размер как он назван (например "42" или "4 3/8"), иначе null.
@@ -75,6 +79,12 @@ class ExtractionError(RuntimeError):
 
 
 _JSON_BLOCK = re.compile(r"\{.*\}", re.DOTALL)
+_RETRY_DELAY = re.compile(r'"retryDelay":\s*"(\d+(?:\.\d+)?)s"')
+
+
+def _extract_retry_delay(error_body: str) -> float | None:
+    match = _RETRY_DELAY.search(error_body)
+    return float(match.group(1)) + 0.5 if match else None
 
 
 def call_model(request: str) -> dict:
@@ -91,22 +101,33 @@ def call_model(request: str) -> dict:
         },
     }).encode("utf-8")
 
-    req = urllib.request.Request(
-        API_URL,
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "x-goog-api-key": API_KEY,
-        },
-    )
-
-    try:
-        with urllib.request.urlopen(req, timeout=30) as resp:
-            payload = json.loads(resp.read().decode("utf-8"))
-    except urllib.error.HTTPError as e:
-        raise ExtractionError(f"HTTP {e.code} от модели: {e.read().decode('utf-8', 'replace')}") from e
-    except urllib.error.URLError as e:
-        raise ExtractionError(f"Сеть недоступна: {e}") from e
+    payload = None
+    last_error = None
+    for attempt in range(4):
+        req = urllib.request.Request(
+            API_URL,
+            data=body,
+            headers={
+                "Content-Type": "application/json",
+                "x-goog-api-key": API_KEY,
+            },
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                payload = json.loads(resp.read().decode("utf-8"))
+            break
+        except urllib.error.HTTPError as e:
+            error_body = e.read().decode("utf-8", "replace")
+            last_error = f"HTTP {e.code} от модели: {error_body}"
+            if e.code in (429, 503) and attempt < 3:
+                delay = _extract_retry_delay(error_body) or (2 ** attempt)
+                time.sleep(delay)
+                continue
+            raise ExtractionError(last_error) from e
+        except urllib.error.URLError as e:
+            raise ExtractionError(f"Сеть недоступна: {e}") from e
+    else:
+        raise ExtractionError(last_error or "Не удалось получить ответ от модели")
 
     try:
         text = payload["candidates"][0]["content"]["parts"][0]["text"]
