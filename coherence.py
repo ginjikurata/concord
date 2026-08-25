@@ -3,8 +3,8 @@
 Устройство сознательно разделено на две половины:
 
   1) ИЗВЛЕЧЕНИЕ — превратить слова человека в набор фактов.
-     Здесь это ЗАГЛУШКА на ключевых словах. В настоящем продукте на этом
-     месте языковая модель. Это единственное место, где нужен ИИ.
+     Здесь работает настоящая языковая модель (llm_extract.py).
+     Это единственное место, где нужен ИИ.
 
   2) СВЕРКА — сравнить факты с корзиной и выдать заключение.
      Это обычный детерминированный код. Он воспроизводим, объясним
@@ -18,9 +18,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-import re
 
 from catalog import find
+from llm_extract import ExtractionError, call_model
 
 BLOCK = "стоп"
 WARN = "предупреждение"
@@ -58,74 +58,59 @@ class Verdict:
 
 
 # ---------------------------------------------------------------------------
-# 1. Извлечение — ЗАГЛУШКА
+# 1. Извлечение — настоящая языковая модель (llm_extract.py)
 # ---------------------------------------------------------------------------
 
-_BRANDS = ["Babolat", "HEAD", "Wilson", "ASICS"]
-_COLORS = {
-    "чёрн": "black", "черн": "black", "бел": "white",
-    "син": "blue", "жёлт": "yellow", "желт": "yellow",
-}
-_NUMERALS = {
-    "пару": 2, "пара": 2, "две": 2, "два": 2, "три": 3,
-    "четыре": 4, "пять": 5, "шесть": 6,
-}
-_CHEAP = ["недорог", "дешев", "дешёв", "бюджет", "подешевле", "не дорог"]
-_PREMIUM = ["професс", "топов", "лучш", "флагман"]
-_BEGINNER = ["новичк", "начинающ", "только начина", "начина"]
-_REFUND = ["вернуть", "возврат", "не подойд", "обмен"]
-_SIZES = ["42", "43", "44", "45", "4 1/4", "4 3/8"]
-_WEEKDAY_DEADLINE = ["к субботе", "к пятнице", "к выходным", "в выходные"]
+
+def _as_int(value, field_name: str) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise ExtractionError(f"Поле {field_name}: ожидалось число, получен bool {value!r}")
+    if isinstance(value, int):
+        return value
+    if isinstance(value, str) and value.strip().lstrip("-").isdigit():
+        return int(value)
+    raise ExtractionError(f"Поле {field_name}: ожидалось целое число, получено {value!r}")
+
+
+def _as_str(value, field_name: str) -> str | None:
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return value
+    raise ExtractionError(f"Поле {field_name}: ожидалась строка, получено {value!r}")
 
 
 def extract_intent(request: str, deadline_days: int | None = None) -> IntentFacts:
-    """ЗАГЛУШКА. В продукте здесь работает языковая модель.
+    """Извлекает факты из просьбы человека настоящей языковой моделью.
 
-    Правила на ключевых словах достаточны, чтобы показать устройство,
-    и заведомо недостаточны для реальной эксплуатации.
+    Сверка (ниже в этом файле) не знает и не должна знать, что было внутри
+    этой функции — только то, что IntentFacts либо получен, либо не получен
+    (тогда наружу летит ExtractionError, а не молчаливые null-поля).
     """
-    low = request.lower()
-    f = IntentFacts(raw=request, deadline_days=deadline_days)
+    data = call_model(request)
 
-    for b in _BRANDS:
-        if b.lower() in low:
-            f.brand = b
-            break
-    for key, val in _COLORS.items():
-        if key in low:
-            f.color = val
-            break
-    for s in _SIZES:
-        if re.search(rf"\b{re.escape(s)}\b", request) or f"{s} размер" in low:
-            f.size_label = s
-            break
-    if "сорок втор" in low:
-        f.size_label = "42"
+    level = _as_str(data.get("level"), "level")
+    if level == "advanced":
+        level = "pro"
 
-    if any(k in low for k in _CHEAP):
-        f.price_preference = "cheap"
-    elif any(k in low for k in _PREMIUM):
-        f.price_preference = "premium"
+    price_preference = _as_str(data.get("price_preference"), "price_preference")
 
-    if any(k in low for k in _BEGINNER):
-        f.level = "beginner"
+    model_deadline = _as_int(data.get("deadline_days"), "deadline_days")
 
-    m = re.search(r"до\s+(\d[\d\s]{2,})", request)
-    if m:
-        f.explicit_max_cents = int(m.group(1).replace(" ", "")) * 100
-
-    for word, n in _NUMERALS.items():
-        if re.search(rf"\b{word}\b", low):
-            f.quantity = n
-            break
-
-    if any(k in low for k in _REFUND):
-        f.needs_refundable = True
-
-    if f.deadline_days is None and any(k in low for k in _WEEKDAY_DEADLINE):
-        f.deadline_days = 5
-
-    return f
+    return IntentFacts(
+        raw=request,
+        deadline_days=deadline_days if deadline_days is not None else model_deadline,
+        brand=_as_str(data.get("brand"), "brand"),
+        color=_as_str(data.get("color"), "color"),
+        size_label=_as_str(data.get("size_label"), "size_label"),
+        level=level,
+        price_preference=price_preference,
+        explicit_max_cents=_as_int(data.get("explicit_max_cents"), "explicit_max_cents"),
+        quantity=_as_int(data.get("quantity"), "quantity"),
+        needs_refundable=bool(data.get("needs_refundable", False)),
+    )
 
 
 # ---------------------------------------------------------------------------
