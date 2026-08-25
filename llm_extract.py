@@ -17,11 +17,17 @@ import re
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 
 _ENV_LOADED = False
 
+# .env лежит рядом с этим файлом. Искать его относительно текущей папки
+# нельзя: скрипт, запущенный не из корня проекта, молча не нашёл бы ключ
+# и упал бы с «LLM_API_KEY не задан», хотя ключ на месте.
+_ENV_PATH = Path(__file__).resolve().parent / ".env"
 
-def _load_env_file(path: str = ".env") -> None:
+
+def _load_env_file(path: str | Path = _ENV_PATH) -> None:
     global _ENV_LOADED
     if _ENV_LOADED or not os.path.exists(path):
         return

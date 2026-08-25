@@ -8,12 +8,40 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import sys
 import time
 import uuid
 from pathlib import Path
 
-VI = Path("~/Documents/verifiable-intent").expanduser()
+def _find_vi_sdk() -> Path:
+    """Где лежит клон agent-intent/verifiable-intent.
+
+    Абсолютный путь здесь зашивать нельзя: проект перестал бы работать
+    после переноса папки или на другой машине. Порядок поиска —
+    переменная окружения, затем обычные места рядом с проектом.
+    """
+    here = Path(__file__).resolve().parent
+    candidates = []
+    if env_path := os.environ.get("VI_SDK_PATH"):
+        candidates.append(Path(env_path).expanduser())
+    candidates += [
+        here.parent / "verifiable-intent",   # рядом с папкой проекта
+        here / "verifiable-intent",          # внутри папки проекта
+    ]
+    for path in candidates:
+        if (path / "src" / "verifiable_intent").is_dir():
+            return path
+    raise SystemExit(
+        "Не найден SDK Verifiable Intent. Искал в:\n"
+        + "\n".join(f"  - {c}" for c in candidates)
+        + "\n\nСклонируйте его рядом с проектом:\n"
+        "  git clone https://github.com/agent-intent/verifiable-intent.git\n"
+        "либо укажите путь в переменной VI_SDK_PATH."
+    )
+
+
+VI = _find_vi_sdk()
 for p in (str(VI / "src"), str(VI / "examples")):
     if p not in sys.path:
         sys.path.insert(0, p)
