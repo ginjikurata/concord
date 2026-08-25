@@ -245,3 +245,47 @@ def check_coherence(facts: IntentFacts, purchase, allowed_band, allowlist=()) ->
             ))
 
     return Verdict(coherent=not any(f.severity == BLOCK for f in findings), findings=findings)
+
+
+# ---------------------------------------------------------------------------
+# 3. Режим «до покупки» — та же сверка, другой момент вызова
+# ---------------------------------------------------------------------------
+#
+# check_coherence выше отвечает на вопрос «эта уже сделанная покупка совпадает
+# с просьбой?» — годится для аудита и споров постфактум. decide_before_purchase
+# задаёт тот же вопрос до того, как агент нажал «купить»: результат — не
+# вердикт для спора, а команда «можно продолжать» или «сначала спроси
+# человека», с готовой причиной, которую можно ему показать.
+
+
+ASK = "спросить"
+PROCEED = "продолжить"
+
+
+@dataclass
+class Decision:
+    action: str                                    # PROCEED | ASK
+    reasons: list[Finding] = field(default_factory=list)   # BLOCK-находки — из-за них решили спросить
+    notes: list[Finding] = field(default_factory=list)     # WARN-находки — можно продолжать, но человеку видно
+
+    @property
+    def question(self) -> str | None:
+        """Готовый вопрос человеку, если решили спросить. None, если можно продолжать."""
+        if self.action != ASK:
+            return None
+        bullets = "\n".join(f"  - {f.text}" for f in self.reasons)
+        return f"Прежде чем купить, уточните у человека:\n{bullets}\nВсё равно продолжить?"
+
+
+def decide_before_purchase(facts: IntentFacts, purchase, allowed_band, allowlist=()) -> Decision:
+    """Решает, можно ли агенту продолжить покупку без подтверждения человека.
+
+    Ничего нового не проверяет — использует ту же check_coherence на
+    предполагаемой покупке, до того как она состоялась. BLOCK-находки
+    останавливают агента и требуют подтверждения; WARN-находки не
+    останавливают, но остаются видны в notes.
+    """
+    verdict = check_coherence(facts, purchase, allowed_band, allowlist)
+    reasons = [f for f in verdict.findings if f.severity == BLOCK]
+    notes = [f for f in verdict.findings if f.severity == WARN]
+    return Decision(action=ASK if reasons else PROCEED, reasons=reasons, notes=notes)
