@@ -26,6 +26,12 @@ BLOCK = "стоп"
 WARN = "предупреждение"
 
 
+_SOFTENABLE_FIELDS = {
+    "brand", "color", "size_label", "level", "price_preference",
+    "explicit_max_cents", "quantity", "needs_refundable", "deadline_days",
+}
+
+
 @dataclass
 class IntentFacts:
     brand: str | None = None
@@ -38,6 +44,10 @@ class IntentFacts:
     needs_refundable: bool = False
     deadline_days: int | None = None
     raw: str = ""
+    # Имена полей выше, которые человек сам обозначил как необязательные
+    # или примерные ("не принципиально", "плюс-минус"). Расхождение по
+    # такому полю — предупреждение (WARN), а не блокировка (BLOCK).
+    soft: frozenset = field(default_factory=frozenset)
 
 
 @dataclass
@@ -82,6 +92,17 @@ def _as_str(value, field_name: str) -> str | None:
     raise ExtractionError(f"Поле {field_name}: ожидалась строка, получено {value!r}")
 
 
+def _as_soft_set(value) -> frozenset:
+    if value is None:
+        return frozenset()
+    if not isinstance(value, list):
+        raise ExtractionError(f"Поле soft_fields: ожидался список, получено {value!r}")
+    unknown = [v for v in value if v not in _SOFTENABLE_FIELDS]
+    if unknown:
+        raise ExtractionError(f"Поле soft_fields: неизвестные имена полей {unknown!r}")
+    return frozenset(value)
+
+
 def extract_intent(request: str, deadline_days: int | None = None) -> IntentFacts:
     """Извлекает факты из просьбы человека настоящей языковой моделью.
 
@@ -110,6 +131,7 @@ def extract_intent(request: str, deadline_days: int | None = None) -> IntentFact
         explicit_max_cents=_as_int(data.get("explicit_max_cents"), "explicit_max_cents"),
         quantity=_as_int(data.get("quantity"), "quantity"),
         needs_refundable=bool(data.get("needs_refundable", False)),
+        soft=_as_soft_set(data.get("soft_fields")),
     )
 
 
@@ -141,6 +163,9 @@ def check_coherence(facts: IntentFacts, purchase, allowed_band, allowlist=()) ->
     allowlist — утверждённые артикулы: нужны, чтобы понять, был ли у агента
     более подходящий выбор. Без этого «дорого» не отличить от «дешевле не было».
     """
+    def sev(field_name: str) -> str:
+        return WARN if field_name in facts.soft else BLOCK
+
     findings: list[Finding] = []
     band_min, band_max = allowed_band
     items = [(find(sku), qty) for sku, qty in purchase]
@@ -151,37 +176,37 @@ def check_coherence(facts: IntentFacts, purchase, allowed_band, allowlist=()) ->
 
         if facts.brand and product["brand"].lower() != facts.brand.lower():
             findings.append(Finding(
-                "brand", BLOCK,
+                "brand", sev("brand"),
                 f"Человек назвал бренд {facts.brand}, куплен {product['brand']} — {name}.",
             ))
 
         if facts.color and product["color"] != facts.color and product["category"] != "racket":
             findings.append(Finding(
-                "color", BLOCK,
+                "color", sev("color"),
                 f"Просили цвет «{facts.color}», у товара «{product['color']}» — {name}.",
             ))
 
         if facts.size_label and product["size_label"] and product["size_label"] != facts.size_label:
             findings.append(Finding(
-                "size", BLOCK,
+                "size", sev("size_label"),
                 f"Просили размер {facts.size_label}, куплен {product['size_label']} — {name}.",
             ))
 
         if facts.level and product["level"] not in (facts.level, "any"):
             findings.append(Finding(
-                "level", BLOCK,
+                "level", sev("level"),
                 f"Просили уровень «{facts.level}», товар относится к «{product['level']}» — {name}.",
             ))
 
         if facts.needs_refundable and not product["refundable"]:
             findings.append(Finding(
-                "refund", BLOCK,
+                "refund", sev("needs_refundable"),
                 f"Человек просил возможность вернуть, товар невозвратный — {name}.",
             ))
 
         if facts.deadline_days is not None and product["ships_in_days"] > facts.deadline_days:
             findings.append(Finding(
-                "deadline", BLOCK,
+                "deadline", sev("deadline_days"),
                 f"Нужно за {facts.deadline_days} дн., срок поставки {product['ships_in_days']} дн. — {name}.",
             ))
 
@@ -197,7 +222,7 @@ def check_coherence(facts: IntentFacts, purchase, allowed_band, allowlist=()) ->
         if cheaper:
             best = min(cheaper, key=lambda p: p["price_cents"])
             findings.append(Finding(
-                "price", BLOCK,
+                "price", sev("price_preference"),
                 f"Просили недорого. Куплено за {chosen['price_cents']/100:.0f}, "
                 f"хотя в том же утверждённом списке был «{best['name']}» "
                 f"за {best['price_cents']/100:.0f}.",
@@ -205,7 +230,7 @@ def check_coherence(facts: IntentFacts, purchase, allowed_band, allowlist=()) ->
 
     if facts.explicit_max_cents and total > facts.explicit_max_cents:
         findings.append(Finding(
-            "explicit-max", BLOCK,
+            "explicit-max", sev("explicit_max_cents"),
             f"Человек назвал предел {facts.explicit_max_cents/100:.0f}, "
             f"потрачено {total/100:.0f}.",
         ))
@@ -215,7 +240,7 @@ def check_coherence(facts: IntentFacts, purchase, allowed_band, allowlist=()) ->
         bought = sum(q for _, q in items)
         if bought > facts.quantity:
             findings.append(Finding(
-                "quantity", BLOCK,
+                "quantity", sev("quantity"),
                 f"Просили {facts.quantity} шт., куплено {bought} шт.",
             ))
 

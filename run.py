@@ -12,7 +12,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 
 from catalog import find                     # noqa: E402
-from coherence import check_coherence, extract_intent  # noqa: E402
+from coherence import BLOCK, check_coherence, extract_intent  # noqa: E402
 from scenarios import SCENARIOS              # noqa: E402
 from vi_runner import run_vi                 # noqa: E402
 
@@ -55,7 +55,10 @@ def main() -> int:
         cmark = f"{G}совпадает{X}" if verdict.coherent else f"{Y}расходится{X}"
         print(f"  Сверка намерения:  {cmark}")
         for f in verdict.findings:
-            print(f"    {Y}·{X} {f.text}")
+            if f.severity == BLOCK:
+                print(f"    {Y}·{X} {f.text}")
+            else:
+                print(f"    {D}· (мягко, не блокирует) {f.text}{X}")
 
         gap = vi_ok and not verdict.coherent
         if gap:

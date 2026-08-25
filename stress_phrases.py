@@ -20,6 +20,9 @@ class StressCase:
     phrase: str
     expect: dict | None = None
     note: str = ""
+    # Имена полей, которые должны попасть в IntentFacts.soft — то есть
+    # модель должна заметить, что человек сам снял жёсткость с требования.
+    expect_soft: frozenset = frozenset()
 
 
 CASES: list[StressCase] = [
@@ -87,14 +90,16 @@ CASES: list[StressCase] = [
         "Черные кроссовки, а вообще если только белые есть — ну ладно, "
         "разница не принципиальная.",
         expect=None,
-        note="человек сам снимает требование к цвету — жёсткий тест на нюанс",
+        expect_soft=frozenset({"color"}),
+        note="человек сам снимает требование к цвету — должно попасть в soft_fields",
     ),
     StressCase(
         "caveat-3", "с оговоркой",
         "В целом недорого нужно, но если увидишь прям супер вариант чуть "
         "дороже — бери, не страшно.",
         expect=None,
-        note="ценовое предпочтение смягчено условием — cheap не должен восприниматься как жёсткий лимит",
+        expect_soft=frozenset({"price_preference"}),
+        note="ценовое предпочтение смягчено условием — должно попасть в soft_fields",
     ),
 
     # ---- противоречия внутри фразы ----------------------------------------
@@ -147,7 +152,8 @@ CASES: list[StressCase] = [
         "price-2", "формат цены",
         "Ну рублей на триста где-то, плюс-минус.",
         expect=None,
-        note="приблизительная сумма без чёткого предела — explicit_max_cents по идее null",
+        expect_soft=frozenset({"explicit_max_cents"}),
+        note="приблизительная сумма — если explicit_max_cents вообще извлечён, он должен быть soft",
     ),
     StressCase(
         "price-3", "формат цены",

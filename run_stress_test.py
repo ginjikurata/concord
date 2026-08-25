@@ -40,19 +40,25 @@ def main() -> int:
             errors.append((case, str(e)))
             continue
 
-        if case.expect is None:
-            print(f"  {D}(без автосверки — читаем глазами){X}")
-            print(f"  {facts}")
-            review_only.append((case, facts))
-            continue
-
         mismatches = []
-        for key, expected_val in case.expect.items():
+        for key, expected_val in (case.expect or {}).items():
             actual_val = getattr(facts, key)
             norm_actual = actual_val.lower() if isinstance(actual_val, str) else actual_val
             norm_expected = expected_val.lower() if isinstance(expected_val, str) else expected_val
             if norm_actual != norm_expected:
                 mismatches.append((key, expected_val, actual_val))
+
+        missing_soft = sorted(case.expect_soft - facts.soft)
+        if missing_soft:
+            mismatches.append(("soft_fields", sorted(case.expect_soft), sorted(facts.soft)))
+
+        if case.expect is None and not case.expect_soft:
+            print(f"  {D}(без автосверки — читаем глазами){X}")
+            print(f"  {facts}")
+            review_only.append((case, facts))
+            if case.note:
+                print(f"  {D}{case.note}{X}")
+            continue
 
         if mismatches:
             print(f"  {R}расхождение:{X}")
@@ -60,7 +66,8 @@ def main() -> int:
                 print(f"    {key}: ожидали {exp!r}, получили {act!r}")
             checked_fail.append((case, facts, mismatches))
         else:
-            print(f"  {G}совпало{X} ({', '.join(case.expect.keys())})")
+            checked_keys = list(case.expect or {}) + (["soft:" + ",".join(sorted(case.expect_soft))] if case.expect_soft else [])
+            print(f"  {G}совпало{X} ({', '.join(checked_keys)})")
             checked_pass.append((case, facts))
 
         if case.note:
