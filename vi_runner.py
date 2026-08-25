@@ -146,7 +146,7 @@ def run_vi(scn) -> dict:
         final_merchant=MERCHANTS[0],
     ), agent.private_key, l2_base, pay_disc, mer_disc)
 
-    create_layer3_checkout(CheckoutL3Mandate(
+    l3b = create_layer3_checkout(CheckoutL3Mandate(
         nonce=nonce, aud=MERCHANTS[0]["website"], iat=now,
         iss="https://agent.example", exp=now + 300,
         final_checkout=FinalCheckoutMandate(checkout_jwt=jwt, checkout_hash=c_hash),
@@ -212,4 +212,20 @@ def run_vi(scn) -> dict:
         "constraints_ok": satisfied,
         "violations": violations,
         "total_cents": total,
+        # Сырые подписанные артефакты — для того, чтобы вторая реализация
+        # стандарта могла провалидировать их сама и сверить свой ответ с
+        # нашим, а не поверить нам на слово.
+        "artifacts": {
+            "layer1": l1.serialize(),
+            "layer2": l2_ser,
+            "layer2_payment_presentation": l2_payment_ser,
+            "layer3_payment": l3a.serialize(),
+            "layer3_checkout": l3b.serialize(),
+        },
+        "keys": {
+            "issuer_public_jwk": issuer.public_jwk,
+            "user_public_jwk": user.public_jwk,
+            "agent_public_jwk": agent.public_jwk,
+            "merchant_public_jwk": merchant.public_jwk,
+        },
     }
