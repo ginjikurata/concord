@@ -213,8 +213,14 @@ Both are fixed; that is what a conformance suite is for.
 TypeScript one, `verifyChain` checks payment constraints inline, so a violated
 constraint makes the chain itself invalid. On `vi-catches` the reference reports
 `chain_valid=true, constraints_satisfied=false` with two violations, while
-TypeScript reports `valid=false` with the first. Same decision, different shape
-— and nothing in the spec appears to settle which is correct.
+TypeScript reports `valid=false` with the first.
+
+The spec does treat these as two components — `constraints.md` says the
+`mandate.payment.reference` constraint is "not validated by the constraint
+checker" but by "the chain verification module" — so the split is real. What it
+does not appear to say is whether a verifier's single top-level "is this valid?"
+answer should already account for constraint results. Both readings produce the
+same accept/reject decision here; they differ in what a caller has to check.
 
 ---
 
