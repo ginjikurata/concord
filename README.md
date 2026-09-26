@@ -44,20 +44,22 @@ constraint in the standard and still be the wrong purchase.
 ### Why this matters for liability
 
 Issue [#15](https://github.com/agent-intent/verifiable-intent/issues/15) asks
-who absorbs the loss when an agent buys the wrong thing. Answering it, a
-participant in the discussion wrote:
+who absorbs the loss when an agent's error produces a purchase the user
+disputes. The issue body records this answer:
 
 > The merchant is liable as they have verified L3 cart_jwt against the L2's
 > user intent
 
-— [@fahads9](https://github.com/fahads9), issue #15
+Its provenance is worth stating precisely. The answer is marked `[CY]` and
+preceded by a request for @fahads9 to verify it; the issue has no comments, so
+it has not been confirmed. It is not an official position of the standard, and
+the same answer notes that a liability shift is still being worked out in the
+Agent Pay Acceptance framework.
 
-That commenter is a discussion participant, not a project maintainer, and the
-position is not an official one. It is worth taking seriously anyway, because
-it is the intuitive reading: someone must reconcile the cart against intent,
-and the merchant is the obvious candidate. The problem is that the standard
-gives merchants no mechanism to do it. The duty is assigned; the instrument
-does not exist.
+It is nonetheless the answer on record, and it is the intuitive one: someone
+must reconcile the cart against intent, and the merchant is the obvious
+candidate. The problem is that the standard gives merchants no mechanism to do
+it. The duty is assigned; the instrument does not exist.
 
 ---
 
@@ -163,7 +165,10 @@ chargeback.
 ## Conformance vectors
 
 The standard ships no cross-implementation test vectors, so a second
-implementation has no way to show it agrees with the reference one.
+implementation has no way to show it agrees with the reference one. Second
+implementations do exist — an open TypeScript library is announced in
+[#30](https://github.com/agent-intent/verifiable-intent/issues/30) — but none
+of the discussions includes shared vectors to test them against.
 
 `build_conformance_vectors.py` generates them: all 8 scenarios, each with a
 genuinely signed chain (L1, L2, the L2 payment presentation, L3a, L3b), the
@@ -206,6 +211,7 @@ Read the numbers with these in mind:
 This repository works *on top of* Verifiable Intent and does not modify it. The
 spec is Apache 2.0 and is expected as a sibling checkout, not vendored here.
 
-Nothing here has been raised with the standard's authors yet. Of the open
-discussions in that repository, none currently addresses the mismatch between
-stated intent and encoded constraints.
+Nothing here has been raised with the standard's authors yet. As of September
+2026, a search of every issue, pull request and comment in that repository
+finds none addressing the mismatch between stated intent and encoded
+constraints. The spec itself is unchanged since April 2026 (commit `356c296`).
