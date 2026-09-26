@@ -122,6 +122,7 @@ run_stress_test.py            runs them, auto-checking where an answer is unambi
 run.py                        8 scenarios, after the fact
 run_prepurchase.py            same scenarios, decided before checkout
 build_conformance_vectors.py  generates conformance_vectors.json
+crosscheck/                   runs those vectors through the TypeScript implementation
 ```
 
 ### Extraction and checking are deliberately separate
@@ -171,9 +172,9 @@ implementations do exist — an open TypeScript library is announced in
 of the discussions includes shared vectors to test them against.
 
 `build_conformance_vectors.py` generates them: all 8 scenarios, each with a
-genuinely signed chain (L1, L2, the L2 payment presentation, L3a, L3b), the
-public JWKs, and the expected verdict — chain validity, constraint
-satisfaction, and the exact violations.
+genuinely signed chain (L1, L2, both L2 presentations, L3a, L3b), the public
+JWKs, and the expected verdict — chain validity, constraint satisfaction, and
+the exact violations.
 
 The output is **not** committed. L3 mandates expire five minutes after
 issuance, so a frozen fixture would test "can you reject something stale"
@@ -183,6 +184,37 @@ immediately.
 The signatures are real: they verify with a plain ECDSA implementation and no
 Mastercard SDK involved, which is exactly what a second implementation would
 do.
+
+### Result against a second implementation
+
+The vectors have been run through
+[lukasjhan/verifiable-intent](https://github.com/lukasjhan/verifiable-intent)
+(`verifiable-intent@0.1.0` on npm), an independent TypeScript implementation:
+
+```bash
+python3 build_conformance_vectors.py
+cd crosscheck && npm install && npm run check
+```
+
+**All 8 vectors agree on whether the purchase is accepted or rejected.** As far
+as I know this is the first cross-implementation comparison for this spec.
+
+Two things surfaced that are worth stating.
+
+**The vectors were incomplete, and the TypeScript side caught it.** It rejected
+all 8 with `L3b (checkout) sd_hash does not match L2 view`. It was right: the
+vectors shipped only the L2 *payment* presentation, so nothing could verify the
+checkout leg — and this project's own runner had never passed `l3_checkout` to
+the reference verifier either, so "chain valid" had meant "one leg of two".
+Both are fixed; that is what a conformance suite is for.
+
+**The two implementations draw the boundary differently.** In the reference SDK,
+`verify_chain` covers cryptography and constraints are a separate call. In the
+TypeScript one, `verifyChain` checks payment constraints inline, so a violated
+constraint makes the chain itself invalid. On `vi-catches` the reference reports
+`chain_valid=true, constraints_satisfied=false` with two violations, while
+TypeScript reports `valid=false` with the first. Same decision, different shape
+— and nothing in the spec appears to settle which is correct.
 
 ---
 

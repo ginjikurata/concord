@@ -1,0 +1,12 @@
+{
+  "name": "concord-crosscheck",
+  "private": true,
+  "type": "module",
+  "description": "Runs Concord's conformance vectors through the TypeScript VI implementation",
+  "scripts": {
+    "check": "node --experimental-strip-types run.ts ../conformance_vectors.json"
+  },
+  "dependencies": {
+    "verifiable-intent": "0.1.0"
+  }
+}

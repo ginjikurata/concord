@@ -181,12 +181,18 @@ def run_vi(scn) -> dict:
     ), agent.private_key, l2_base, chk_disc, itm_disc)
 
     # --- проверка цепочки ---------------------------------------------
+    # Проверяются ОБА плеча L3: платёжное (L3a, для сети) и checkout (L3b,
+    # для магазина). Раньше передавалось только платёжное, и «цепочка
+    # валидна» означало лишь «валидно одно плечо из двух» — расхождение
+    # вскрылось при сверке с реализацией lukasjhan/verifiable-intent.
     l1_parsed, l2_parsed = decode_sd_jwt(l1.serialize()), decode_sd_jwt(l2_ser)
     l2_payment_ser = build_selective_presentation(l2_base, [pay_disc, mer_disc])
-    chain = verify_chain(l1_parsed, l2_parsed, l3_payment=l3a,
+    l2_checkout_ser = build_selective_presentation(l2_base, [chk_disc, itm_disc])
+    chain = verify_chain(l1_parsed, l2_parsed, l3_payment=l3a, l3_checkout=l3b,
                          issuer_public_key=issuer.public_key,
                          l1_serialized=l1.serialize(), l2_serialized=l2_ser,
-                         l2_payment_serialized=l2_payment_ser)
+                         l2_payment_serialized=l2_payment_ser,
+                         l2_checkout_serialized=l2_checkout_ser)
 
     violations: list[str] = []
     satisfied = False
@@ -247,6 +253,7 @@ def run_vi(scn) -> dict:
             "layer1": l1.serialize(),
             "layer2": l2_ser,
             "layer2_payment_presentation": l2_payment_ser,
+            "layer2_checkout_presentation": l2_checkout_ser,
             "layer3_payment": l3a.serialize(),
             "layer3_checkout": l3b.serialize(),
         },
