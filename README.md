@@ -1,10 +1,10 @@
-# intent-gap
+# Concord
 
 Verifiable Intent proves an agent stayed inside its formal limits. It does not
 check whether the agent bought what the person actually asked for.
 
 This repository demonstrates that gap with working code, and prototypes a check
-that closes it.
+that closes it: whether the purchase is in concord with the request.
 
 ---
 
