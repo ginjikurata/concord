@@ -46,6 +46,20 @@ There is no way to express *"in black"*, *"size 42"*, *"returnable if it
 doesn't fit"*, or *"here by Saturday"* — so a purchase can satisfy every
 constraint in the standard and still be the wrong purchase.
 
+This is by design, and the spec says so. §10.4 item 10 requires verifiers to
+check machine-enforceable constraints and states that descriptive fields —
+product description, brand, color, size — "are informational and not subject to
+automated verification". The merchant's duties in §5.3 are structural:
+signatures, hash bindings, and that the disclosed checkout matches the submitted
+one. The threat table in §11 has a row for an agent exceeding its authority, but
+none for an agent that stays within its constraints while buying something other
+than what was asked.
+
+The question this project raises is not whether the spec overlooked these
+attributes, but whether that choice holds up once the user's intent is expected
+to settle disputes — which is how Mastercard's launch announcement describes
+Verifiable Intent.
+
 ### The reference SDK does not transmit the instructions at all
 
 The spec lists `prompt_summary` in the Layer 2 claim table as selectively
