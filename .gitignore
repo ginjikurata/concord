@@ -4,3 +4,4 @@ __pycache__/
 conformance_vectors.json
 crosscheck/node_modules/
 crosscheck/package-lock.json
+drafts/
