@@ -41,6 +41,25 @@ There is no way to express *"in black"*, *"size 42"*, *"returnable if it
 doesn't fit"*, or *"here by Saturday"* — so a purchase can satisfy every
 constraint in the standard and still be the wrong purchase.
 
+### The reference SDK does not transmit the instructions at all
+
+The spec lists `prompt_summary` in the Layer 2 claim table as selectively
+disclosable in Autonomous mode, and its "Merchant presentation" section names it
+among the claims to disclose to a merchant.
+
+The open-source reference SDK accepts `prompt_summary` on `UserMandate` and never
+writes it: it is absent from the L2 payload and from every disclosure. In the
+reference implementation, the person's words reach no one — not the merchant,
+not the network, not a dispute.
+
+- Reproduction, using only the reference SDK and its own helpers:
+  [`repro_prompt_summary_dropped.py`](repro_prompt_summary_dropped.py)
+- Reported: [agent-intent/verifiable-intent#39](https://github.com/agent-intent/verifiable-intent/issues/39)
+- Fix with tests: [agent-intent/verifiable-intent#40](https://github.com/agent-intent/verifiable-intent/pull/40)
+
+This concerns the open-source reference implementation only. How Mastercard's
+production Agent Pay handles the claim is not visible from here.
+
 ### Why this matters for liability
 
 Issue [#15](https://github.com/agent-intent/verifiable-intent/issues/15) asks
@@ -248,8 +267,23 @@ Read the numbers with these in mind:
 
 This repository works *on top of* Verifiable Intent and does not modify it. The
 spec is Apache 2.0 and is expected as a sibling checkout, not vendored here.
+Changes proposed to the spec itself go upstream as pull requests.
 
-Nothing here has been raised with the standard's authors yet. As of September
-2026, a search of every issue, pull request and comment in that repository
-finds none addressing the mismatch between stated intent and encoded
+Raised with the standard so far:
+
+- [#37](https://github.com/agent-intent/verifiable-intent/issues/37) — should VI
+  check that a purchase matches what the user asked for?
+- [#38](https://github.com/agent-intent/verifiable-intent/issues/38) — should a
+  verifier's top-level "valid" already account for constraint results?
+- [#39](https://github.com/agent-intent/verifiable-intent/issues/39) —
+  `prompt_summary` is accepted but never written to L2
+- [#40](https://github.com/agent-intent/verifiable-intent/pull/40) — pull request
+  fixing #39
+
+And with the TypeScript implementation:
+[lukasjhan/verifiable-intent#4](https://github.com/lukasjhan/verifiable-intent/issues/4)
+— the cross-implementation result.
+
+Before #37, a search of every issue, pull request and comment in that repository
+found none addressing the mismatch between stated intent and encoded
 constraints. The spec itself is unchanged since April 2026 (commit `356c296`).
