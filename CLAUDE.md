@@ -234,6 +234,21 @@ README.md           описание проекта на английском �
 - `gemini-flash-lite-latest` по-прежнему указывает на gemini-3.5-flash-lite.
   `run.py` даёт те же 6 из 8.
 
+## Чья это реализация (проверено 2026-09-29)
+
+- `github.com/agent-intent/verifiable-intent` — та самая эталонная
+  реализация, которую объявила Mastercard: официальная статья о запуске
+  (mastercard.com, 5 марта 2026) ссылается на этот репозиторий напрямую,
+  `verifiableintent.dev` тоже ведёт туда, все коммиты — Gene Reda, один
+  с адреса `@mastercard.com`.
+- НО формально авторы указаны как «Verifiable Intent Contributors»
+  (`pyproject.toml`, подвал сайта), организация на GitHub нейтральная
+  («Agentic Commerce and Intent»), стандарт — совместно с Google.
+- В публичных текстах писать «reference SDK / эталонная реализация,
+  которую опубликовала Mastercard», а НЕ «библиотека Mastercard» и НЕ
+  «Mastercard SDK». И всегда оговаривать, что речь об открытой
+  реализации, а не о боевой системе Agent Pay.
+
 ## Правила работы
 
 - Отвечать по-русски.

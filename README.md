@@ -15,6 +15,11 @@ v0.1) cryptographically binds a purchase to a delegation chain: the item is on
 an approved list, the amount is inside a band, the merchant is allowed. All of
 that is real and it verifies.
 
+"Reference SDK" below means the Python implementation in that repository —
+the one Mastercard's [launch announcement](https://www.mastercard.com/us/en/news-and-trends/stories/2026/verifiable-intent.html)
+links to as the initial reference implementation. The repository credits
+"Verifiable Intent Contributors".
+
 What the person actually said is carried in a single field, `prompt_summary`.
 In the spec it is:
 
@@ -91,7 +96,7 @@ python3 run.py
 ```
 
 `run.py` builds a genuine VI chain for each scenario — real ES256 signatures,
-real selective disclosure, verified by the Mastercard SDK, nothing mocked — and
+real selective disclosure, verified by the reference SDK, nothing mocked — and
 then runs the intent check against the same purchase.
 
 The VI SDK is located via `VI_SDK_PATH`, then `../verifiable-intent`, then
@@ -133,7 +138,7 @@ person's condition cannot be written as a constraint at all.
 ```
 catalog.py                    products with attributes VI constraints cannot express
 scenarios.py                  8 scenarios: request -> constraints -> purchase
-vi_runner.py                  builds a real VI chain, verifies it with the Mastercard SDK
+vi_runner.py                  builds a real VI chain, verifies it with the reference SDK
 coherence.py                  extraction + deterministic checking + pre-purchase decision
 llm_extract.py                the language model call — the only AI in the project
 stress_phrases.py             37 real-speech phrases for testing extraction
@@ -201,7 +206,7 @@ within minutes of being written. Run the generator and validate the result
 immediately.
 
 The signatures are real: they verify with a plain ECDSA implementation and no
-Mastercard SDK involved, which is exactly what a second implementation would
+reference SDK involved, which is exactly what a second implementation would
 do.
 
 ### Result against a second implementation
